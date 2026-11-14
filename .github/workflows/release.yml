@@ -1,0 +1,234 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. v0.1.0)"
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.normalize.outputs.version }}
+    steps:
+      - id: normalize
+        run: |
+          RAW="${{ inputs.version }}"
+          if [ -z "$RAW" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            RAW="${{ github.ref_name }}"
+          fi
+          VERSION="${RAW#v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Invalid version '$RAW'. Expected SemVer X.Y.Z with optional leading v."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Normalized version: $VERSION"
+
+  bump-version:
+    needs: [validate]
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update version files
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          CUR_PKG=$(jq -r '.version' package.json)
+          CUR_LOCK=$(jq -r '.packages[""].version' package-lock.json)
+          CUR_TAURI=$(jq -r '.version' src-tauri/tauri.conf.json)
+          CUR_CARGO=$(sed -n -E '/^\[package\]/,/^\[/s/^version = "([^"]*)"\r?$/\1/p' src-tauri/Cargo.toml)
+          if [ "$CUR_PKG" = "$VERSION" ] && [ "$CUR_LOCK" = "$VERSION" ] && [ "$CUR_TAURI" = "$VERSION" ] && [ "$CUR_CARGO" = "$VERSION" ]; then
+            echo "All version files already at $VERSION, skipping writes."
+            exit 0
+          fi
+          echo "Bumping to $VERSION (package.json=$CUR_PKG package-lock=$CUR_LOCK tauri.conf=$CUR_TAURI Cargo.toml=$CUR_CARGO)"
+          jq --arg v "$VERSION" '.version = $v' package.json > /tmp/package.json && mv /tmp/package.json package.json
+          jq --arg v "$VERSION" '.version = $v | .packages[""].version = $v' package-lock.json > /tmp/package-lock.json && mv /tmp/package-lock.json package-lock.json
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > /tmp/tauri.conf.json && mv /tmp/tauri.conf.json src-tauri/tauri.conf.json
+          sed -i -E "0,/^version = \".*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+          echo "--- diff ---"
+          git diff -- package.json package-lock.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
+          if git status --porcelain | grep -q "src-tauri/Cargo.lock"; then
+            echo "::warning::Cargo.lock churn detected — leaving it uncommitted; CI cargo will regenerate it."
+          fi
+
+      - name: Commit and push
+        id: push
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
+          if git diff --cached --quiet; then
+            echo "Versions already at $VERSION, nothing to commit."
+          else
+            git commit -m "chore(release): v$VERSION"
+            git push
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build (${{ matrix.name }})
+    needs: [validate, bump-version]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - name: macOS Apple Silicon
+            os: macos-latest
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: cargo
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build with Tauri Action
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: v${{ needs.validate.outputs.version }}
+          releaseName: v${{ needs.validate.outputs.version }}
+          releaseBody: |
+            See the assets to download this version and install.
+
+            Full changelog: https://github.com/${{ github.repository }}/releases/tag/v${{ needs.validate.outputs.version }} (GitHub auto-generated notes).
+          releaseDraft: false
+          prerelease: false
+          args: --target ${{ matrix.target }}
+
+      - name: Upload portable exe (Windows)
+        if: runner.os == 'Windows'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp "src-tauri/target/${{ matrix.target }}/release/baseapp.exe" "baseapp-${{ needs.validate.outputs.version }}-portable.exe"
+          gh release upload "v${{ needs.validate.outputs.version }}" "baseapp-${{ needs.validate.outputs.version }}-portable.exe" --clobber
+
+      - name: Upload workflow artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-x86_64-pc-windows-msvc
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+            baseapp-*-portable.exe
+          if-no-files-found: warn
+
+      - name: Upload workflow artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-x86_64-unknown-linux-gnu
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/baseapp
+          if-no-files-found: warn
+
+      - name: Upload workflow artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-aarch64-apple-darwin
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/baseapp
+          if-no-files-found: warn
+
+  publish:
+    name: Publish GitHub release
+    needs: [validate, bump-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          set -e
+          if [ -n "${{ needs.validate.outputs.version }}" ]; then
+            ver="${{ needs.validate.outputs.version }}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            ver="${{ inputs.version }}"
+          else
+            ver="$(node -p "require('./package.json').version")"
+          fi
+          ver="${ver#v}"
+          tag="v$ver"
+          file_ver="v$(node -p "require('./package.json').version")"
+          file_ver="v${file_ver#v}"
+          if [ "$tag" != "$file_ver" ]; then
+            echo "::error::Release tag $tag does not match version files ($file_ver). Bump version files first."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create release and upload assets
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          generateReleaseNotes: true
+          allowUpdates: true
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
