@@ -96,7 +96,7 @@ pub fn details_page(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
                             .mt(px(10.0))
                             .text_size(px(11.0))
                             .text_color(theme.muted_fg)
-                            .child("By Pamod".to_string())
+                            .child("By XD".to_string())
                             .child(
                                 icon("shield-check")
                                     .size(px(13.0))
@@ -339,7 +339,7 @@ pub fn details_page(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
     // aside
     let mut facts = div().flex().flex_col().gap(px(19.0));
     for (label, value) in [
-        ("Developer", "Pamod".to_string()),
+                        ("Developer", "XD".to_string()),
         ("Latest version", app.version.clone()),
         (
             "Installed version",

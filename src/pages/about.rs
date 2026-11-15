@@ -44,7 +44,7 @@ pub fn about_page(theme: Theme, store: StoreHandle, _cx: &mut App) -> Div {
                 .text_size(px(38.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(theme.foreground)
-                .child("Pamod Store".to_string()),
+                .child("XD".to_string()),
         )
         .child(
             div()
@@ -73,7 +73,7 @@ pub fn about_page(theme: Theme, store: StoreHandle, _cx: &mut App) -> Div {
                 .line_height(px(22.8))
                 .text_color(theme.muted_fg)
                 .child(
-                    "A personal collection of desktop applications developed by Pamod. Discover new tools, keep your favorites up to date, and bring a little more ease to your everyday workflow."
+                    "A personal collection of desktop applications developed by XD. Discover new tools, keep your favorites up to date, and bring a little more ease to your everyday workflow."
                         .to_string(),
                 ),
         )
@@ -94,7 +94,7 @@ pub fn about_page(theme: Theme, store: StoreHandle, _cx: &mut App) -> Div {
                         s_gh.update(cx, |s, _| {
                             s.toast(
                                 "GitHub profile",
-                                Some("https://github.com/PamodMadubashana".into()),
+                                Some("https://github.com/pamod-madubashana".into()),
                                 crate::state::ToastKind::Info,
                             );
                         });
@@ -113,7 +113,7 @@ pub fn about_page(theme: Theme, store: StoreHandle, _cx: &mut App) -> Div {
                             s.toast(
                                 "Source code",
                                 Some(
-                                    "https://github.com/PamodMadubashana/pamod-store".into(),
+                                    "https://github.com/pamod-madubashana/XD".into(),
                                 ),
                                 crate::state::ToastKind::Info,
                             );
@@ -132,7 +132,7 @@ pub fn about_page(theme: Theme, store: StoreHandle, _cx: &mut App) -> Div {
                 .border_t(px(1.0))
                 .border_b(px(1.0))
                 .border_color(theme.border)
-                .child(fact(&theme, "DEVELOPER", "Pamod"))
+                .child(fact(&theme, "DEVELOPER", "XD"))
                 .child(fact(&theme, "PLATFORM", "Windows 10 / 11"))
                 .child(fact(&theme, "LICENSE", "MIT (sample)")),
         )

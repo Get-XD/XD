@@ -280,7 +280,7 @@ pub fn installed_page(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
                                 .text_size(px(9.0))
                                 .text_color(theme.muted_fg)
                                 .child(format!(
-                                    r"C:\Program Files\Pamod\{}",
+                                    r"C:\Program Files\XD\{}",
                                     app.name
                                 )),
                         )

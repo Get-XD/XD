@@ -86,7 +86,7 @@ pub fn home_page(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
                     .text_size(px(9.0))
                     .text_color(theme.muted_fg)
                     .child(icon("shield-check").size(px(14.0)).text_color(theme.muted_fg))
-                    .child("Built by Pamod".to_string()),
+                    .child("Built by XD".to_string()),
             ),
     );
 

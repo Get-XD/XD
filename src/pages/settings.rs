@@ -14,7 +14,7 @@ pub fn settings_page(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
     root = root.child(page_intro(
         &theme,
         "Make yourself at home.",
-        "Your store, set up the way you like it. Preferences apply to this session.",
+        "Your store, set up the way you like it. Saved automatically on this computer.",
         None,
     ));
 
@@ -23,7 +23,7 @@ pub fn settings_page(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
     for (name, desc, key) in [
         (
             "Launch at startup",
-            "Open Pamod Store when you sign in to your computer.",
+            "Open XD when you sign in to your computer.",
             "startup",
         ),
         (
@@ -226,8 +226,8 @@ pub fn settings_page(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
     let s_chk = store.clone();
     root = root.child(setting_row(
         &theme,
-        "Pamod Store v1.0.0",
-        "Developed by Pamod. Desktop software, thoughtfully made.",
+        "XD v1.0.0",
+        "Developed by XD. Desktop software, thoughtfully made.",
         button(
             &theme,
             ButtonVariant::Outline,
@@ -253,7 +253,7 @@ pub fn settings_page(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
             &theme,
             ButtonVariant::Link,
             ButtonSize::Default,
-            Some("More about Pamod Store"),
+            Some("More about XD"),
             Some("arrow-up-right"),
             false,
             move |_, _, cx| {
