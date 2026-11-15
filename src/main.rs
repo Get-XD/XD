@@ -7,10 +7,11 @@ mod state;
 mod theme;
 mod ui;
 
-use gpui::{TitlebarOptions, WindowOptions, App, AppContext, Application, AssetSource, Bounds, SharedString, WindowBounds, px, size};
+use gpui::{TitlebarOptions, WindowOptions, App, AppContext, Application, AsyncApp, AssetSource, Bounds, SharedString, WindowBounds, px, size};
 use state::StoreState;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::time::Duration;
 
 struct Assets {
     base: PathBuf,
@@ -67,7 +68,7 @@ fn main() {
             cx.open_window(
                 WindowOptions {
                     titlebar: Some(TitlebarOptions {
-                        title: Some("XD Store".into()),
+                        title: Some("XD".into()),
                         ..Default::default()
                     }),
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -81,6 +82,30 @@ fn main() {
                 },
             )
             .unwrap();
+
+            let store_tick = store.clone();
+            cx.spawn(async move |cx: &mut AsyncApp| {
+                loop {
+                    cx.background_executor()
+                        .timer(Duration::from_millis(250))
+                        .await;
+                    let due = cx
+                        .update(|cx| store_tick.read(cx).tick_due())
+                        .unwrap_or(false);
+                    if !due {
+                        continue;
+                    }
+                    let _ = cx.update(|cx| {
+                        store_tick.update(cx, |s, _| {
+                            s.tick_downloads();
+                            s.prune_toasts();
+                            s.sync_prefs();
+                        });
+                    });
+                }
+            })
+            .detach();
+
             cx.activate(true);
         });
 }
