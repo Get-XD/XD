@@ -75,8 +75,42 @@ pub fn app_action(
     theme: &Theme,
     store: &StoreHandle,
     app: &StoreApp,
-    _cx: &mut App,
+    cx: &mut App,
 ) -> Stateful<Div> {
+    let busy_status = {
+        let s = store.read(cx);
+        if s.pending_installs.contains(&app.id) {
+            s.downloads
+                .iter()
+                .find(|d| d.id == app.id)
+                .map(|d| d.status.clone())
+        } else {
+            None
+        }
+    };
+    if let Some(status) = busy_status {
+        let (label, icon_name) = match status {
+            DownloadStatus::Queued => ("Queued", "download"),
+            DownloadStatus::Downloading => ("Downloading\u{2026}", "download"),
+            DownloadStatus::Verifying => ("Verifying\u{2026}", "refresh-cw"),
+            DownloadStatus::Installing => ("Installing\u{2026}", "refresh-cw"),
+            _ => ("Working\u{2026}", "refresh-cw"),
+        };
+        return button_inner(
+            theme,
+            ButtonVariant::Secondary,
+            ButtonSize::Sm,
+            Some(label),
+            None,
+            true,
+            Some(27.0),
+            Some(9.0),
+            |_, _, _| {},
+        )
+        .px(px(9.0))
+        .gap(px(5.0))
+        .child(icon(icon_name).size(px(11.0)).text_color(theme.foreground));
+    }
     let updates_available = app
         .installed
         .as_ref()
