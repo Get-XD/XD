@@ -1,6 +1,6 @@
 # XD
 
-A personal app-store desktop client for Windows, built with **Rust** and **[GPUI](https://www.gpui.rs)** (no webview). It is the native implementation of the React mock in [`mock/`](mock/), styled to match it pixel-for-pixel.
+A personal app-store desktop client for Windows, built with **Rust** and **[GPUI](https://www.gpui.rs)** (no webview), styled to match its reference design pixel-for-pixel.
 
 ![Home](docs/screenshot-home.png)
 
@@ -44,7 +44,6 @@ cargo build
 
 ```
 assets/            fonts, icons, hero artwork
-mock/              React reference app (source of truth for visuals)
 src/
   main.rs          entry point, window, fonts, asset source
   shell.rs         window chrome: titlebar, sidebar, header, routing, dialogs
