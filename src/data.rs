@@ -375,7 +375,7 @@ pub fn filter_catalog(
 
 pub fn repository(app: &StoreApp) -> String {
     format!(
-        "https://github.com/PamodMadubashana/{}",
+        "https://github.com/pamod-madubashana/{}",
         app.name.to_lowercase().replace(' ', "-")
     )
 }
