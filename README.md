@@ -1,4 +1,4 @@
-# XD — Pamod Store
+# XD
 
 A personal app-store desktop client for Windows, built with **Rust** and **[GPUI](https://www.gpui.rs)** (no webview). It is the native implementation of the React mock in [`mock/`](mock/), styled to match it pixel-for-pixel.
 
@@ -59,7 +59,7 @@ src/
 
 ## Preferences
 
-Settings are persisted as JSON under `%APPDATA%\PamodStore\preferences.json` and reloaded on startup.
+Settings are persisted as JSON under `%APPDATA%\XD\preferences.json` and reloaded on startup.
 
 ## License
 
