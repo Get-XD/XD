@@ -5,7 +5,7 @@ use crate::pages::*;
 use crate::state::*;
 use crate::theme::Theme;
 use crate::ui::*;
-use gpui::{App, Context, Div, FontWeight, InteractiveElement, IntoElement, KeyDownEvent, Length, ParentElement, Render, SharedString, Stateful, StatefulInteractiveElement, Styled, Window, auto, div, px};
+use gpui::{App, Context, Div, FontWeight, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Render, SharedString, Stateful, StatefulInteractiveElement, Styled, Window, div, px};
 use gpui::prelude::{FluentBuilder};
 
 pub struct StoreShell {
@@ -375,7 +375,7 @@ fn sidebar(
                             .flex()
                             .items_center()
                             .gap(px(6.0))
-                            .child("Pamod Store".to_string())
+                            .child("XD".to_string())
                             .child(
                                 div().text_color(theme.foreground).child("v1.0.0".to_string()),
                             ),
@@ -474,7 +474,7 @@ fn brand(theme: Theme, collapsed: bool, store: StoreHandle, _cx: &mut App) -> St
                             .text_size(px(17.0))
                             .font_weight(FontWeight::EXTRA_BOLD)
                             .text_color(theme.foreground)
-                            .child("Pamod Store".to_string()),
+                            .child("XD".to_string()),
                     )
                     .child(
                         div()
@@ -683,7 +683,7 @@ fn footer(theme: Theme) -> Div {
             div()
                 .flex()
                 .items_center()
-                .child("Made with care by Pamod".to_string())
+                .child("Made with care by XD".to_string())
                 .child(div().mx(px(8.0)).child("·".to_string()))
                 .child("v1.0.0".to_string()),
         )
@@ -880,7 +880,7 @@ fn notifications_dialog(theme: Theme, store: StoreHandle, updates_count: usize, 
         ),
         (
             "package-open",
-            "Pamod Store is up to date".to_string(),
+            "XD is up to date".to_string(),
             "You are using the v1.0.0 prototype.".to_string(),
         ),
     ];
@@ -1117,46 +1117,47 @@ fn confirmation_dialog(
                                 let n = s.updates().len();
                                 let ids: Vec<String> = s.updates().iter().map(|a| a.id.clone()).collect();
                                 for id in ids {
-                                    s.dispatch(StoreAction::Update(id));
+                                    s.begin_download(&id);
                                 }
                                 s.toast(
-                                    format!("{n} updates applied to demo state"),
-                                    None,
+                                    format!("{n} updates queued for download"),
+                                    Some("Track progress on the Downloads page.".into()),
                                     ToastKind::Success,
                                 );
                             }
                             Some(c) => {
                                 if let Some(app) = &c.app {
-                                    let action = match c.action {
+                                    match c.action {
                                         ConfirmationAction::Uninstall => {
-                                            StoreAction::Uninstall(app.id.clone())
+                                            s.dispatch(StoreAction::Uninstall(app.id.clone()));
+                                            let desc = if s.keep_data {
+                                                "Application data preference: keep."
+                                            } else {
+                                                "Application data preference: remove."
+                                            };
+                                            s.toast(
+                                                format!("{}: uninstall simulated", app.name),
+                                                Some(desc.to_string()),
+                                                ToastKind::Success,
+                                            );
                                         }
                                         ConfirmationAction::Update => {
-                                            StoreAction::Update(app.id.clone())
+                                            s.begin_download(&app.id);
+                                            s.toast(
+                                                format!("{}: update queued", app.name),
+                                                Some("Track progress on the Downloads page.".into()),
+                                                ToastKind::Success,
+                                            );
                                         }
-                                        _ => StoreAction::Install(app.id.clone()),
-                                    };
-                                    let verb = match c.action {
-                                        ConfirmationAction::Uninstall => "uninstall",
-                                        ConfirmationAction::Update => "update",
-                                        _ => "install",
-                                    };
-                                    s.dispatch(action);
-                                    let desc = if c.action == ConfirmationAction::Uninstall {
-                                        if s.keep_data {
-                                            "Application data preference: keep.".to_string()
-                                        } else {
-                                            "Application data preference: remove.".to_string()
+                                        _ => {
+                                            s.begin_download(&app.id);
+                                            s.toast(
+                                                format!("{}: download started", app.name),
+                                                Some("Track progress on the Downloads page.".into()),
+                                                ToastKind::Success,
+                                            );
                                         }
-                                    } else {
-                                        "No files were downloaded or installed on your device."
-                                            .to_string()
-                                    };
-                                    s.toast(
-                                        format!("{}: {} simulated", app.name, verb),
-                                        Some(desc),
-                                        ToastKind::Success,
-                                    );
+                                    }
                                 }
                             }
                             None => {}
