@@ -126,7 +126,7 @@ impl Default for Preferences {
             notifications: true,
             shortcuts: true,
             confirmation: true,
-            directory: r"C:\Users\XD\Downloads".into(),
+            directory: Self::default_download_dir(),
             install_directory: r"C:\Program Files\XD".into(),
             concurrent: "3".into(),
             theme: "Dark".into(),
@@ -136,6 +136,17 @@ impl Default for Preferences {
 }
 
 impl Preferences {
+    const LEGACY_DOWNLOAD_DIR: &'static str = r"C:\Users\XD\Downloads";
+
+    pub fn default_download_dir() -> String {
+        std::env::var("USERPROFILE")
+            .ok()
+            .map(|u| u.trim_end_matches('\\').to_string())
+            .filter(|u| !u.is_empty())
+            .map(|u| format!(r"{}\Downloads", u))
+            .unwrap_or_else(|| Self::LEGACY_DOWNLOAD_DIR.into())
+    }
+
     pub fn file_path() -> PathBuf {
         let base = std::env::var("APPDATA")
             .map(PathBuf::from)
@@ -144,10 +155,15 @@ impl Preferences {
     }
 
     pub fn load() -> Preferences {
-        std::fs::read_to_string(Self::file_path())
+        let mut prefs: Preferences = std::fs::read_to_string(Self::file_path())
             .ok()
             .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if prefs.directory == Self::LEGACY_DOWNLOAD_DIR {
+            prefs.directory = Self::default_download_dir();
+            prefs.save();
+        }
+        prefs
     }
 
     pub fn save(&self) {
