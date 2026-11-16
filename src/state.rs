@@ -359,14 +359,7 @@ impl StoreState {
             return;
         }
         self.downloads.retain(|d| d.id != id);
-        self.downloads.insert(
-            0,
-            Download {
-                id: id.to_string(),
-                status: DownloadStatus::Queued,
-                progress: 0,
-            },
-        );
+        self.downloads.insert(0, Download::queued(id));
         self.pending_installs.push(id.to_string());
     }
 

@@ -43,6 +43,31 @@ impl Category {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InstallerKind {
+    Zip,
+    Exe,
+    Msi,
+}
+
+impl InstallerKind {
+    pub fn from_asset(asset: &str) -> InstallerKind {
+        match asset.rsplit('.').next().map(|e| e.to_ascii_lowercase()) {
+            Some(ext) if ext == "exe" => InstallerKind::Exe,
+            Some(ext) if ext == "msi" => InstallerKind::Msi,
+            _ => InstallerKind::Zip,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            InstallerKind::Zip => "Portable (ZIP)",
+            InstallerKind::Exe => "Installer (EXE)",
+            InstallerKind::Msi => "Installer (MSI)",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StoreApp {
     pub id: String,
@@ -60,6 +85,45 @@ pub struct StoreApp {
     pub popular: u32,
     #[serde(default)]
     pub unavailable: bool,
+    #[serde(default)]
+    pub download_url: String,
+    #[serde(default)]
+    pub asset: String,
+    #[serde(default)]
+    pub silent_args: Vec<String>,
+    #[serde(default)]
+    pub executable: String,
+    #[serde(default)]
+    pub uninstall_args: Vec<String>,
+    #[serde(default)]
+    pub sha256: Option<String>,
+}
+
+impl Default for StoreApp {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            tagline: String::new(),
+            description: String::new(),
+            category: Category::Productivity,
+            version: String::new(),
+            installed: None,
+            size: 0,
+            updated: String::new(),
+            added: String::new(),
+            color: String::new(),
+            icon: String::new(),
+            popular: 0,
+            unavailable: false,
+            download_url: String::new(),
+            asset: String::new(),
+            silent_args: Vec::new(),
+            executable: String::new(),
+            uninstall_args: Vec::new(),
+            sha256: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -119,6 +183,40 @@ pub struct Download {
     pub id: String,
     pub status: DownloadStatus,
     pub progress: u32,
+    #[serde(default)]
+    pub received: u64,
+    #[serde(default)]
+    pub total: u64,
+    #[serde(default)]
+    pub bps: u64,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+impl Download {
+    pub fn queued(id: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            status: DownloadStatus::Queued,
+            progress: 0,
+            received: 0,
+            total: 0,
+            bps: 0,
+            error: None,
+        }
+    }
+
+    pub fn completed(id: impl Into<String>) -> Self {
+        Self {
+            status: DownloadStatus::Completed,
+            progress: 100,
+            received: 0,
+            total: 0,
+            bps: 0,
+            error: None,
+            id: id.into(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -150,6 +248,7 @@ pub fn catalog() -> Vec<StoreApp> {
             icon: "audio-lines".into(),
             popular: 98,
             unavailable: false,
+            ..Default::default()
         },
         StoreApp {
             id: "skybox".into(),
@@ -167,6 +266,7 @@ pub fn catalog() -> Vec<StoreApp> {
             icon: "box".into(),
             popular: 94,
             unavailable: false,
+            ..Default::default()
         },
         StoreApp {
             id: "labscan".into(),
@@ -184,6 +284,7 @@ pub fn catalog() -> Vec<StoreApp> {
             icon: "scan-line".into(),
             popular: 90,
             unavailable: false,
+            ..Default::default()
         },
         StoreApp {
             id: "telegram".into(),
@@ -202,6 +303,7 @@ pub fn catalog() -> Vec<StoreApp> {
             icon: "send".into(),
             popular: 87,
             unavailable: false,
+            ..Default::default()
         },
         StoreApp {
             id: "devprocess".into(),
@@ -220,6 +322,7 @@ pub fn catalog() -> Vec<StoreApp> {
             icon: "terminal".into(),
             popular: 92,
             unavailable: false,
+            ..Default::default()
         },
         StoreApp {
             id: "clipnest".into(),
@@ -237,6 +340,7 @@ pub fn catalog() -> Vec<StoreApp> {
             icon: "clipboard".into(),
             popular: 86,
             unavailable: false,
+            ..Default::default()
         },
         StoreApp {
             id: "portwatch".into(),
@@ -254,6 +358,7 @@ pub fn catalog() -> Vec<StoreApp> {
             icon: "network".into(),
             popular: 79,
             unavailable: false,
+            ..Default::default()
         },
         StoreApp {
             id: "focusflow".into(),
@@ -271,33 +376,13 @@ pub fn catalog() -> Vec<StoreApp> {
             icon: "timer".into(),
             popular: 82,
             unavailable: false,
+            ..Default::default()
         },
     ]
 }
 
 pub fn initial_downloads() -> Vec<Download> {
-    vec![
-        Download {
-            id: "labscan".into(),
-            status: DownloadStatus::Downloading,
-            progress: 64,
-        },
-        Download {
-            id: "portwatch".into(),
-            status: DownloadStatus::Queued,
-            progress: 0,
-        },
-        Download {
-            id: "focusflow".into(),
-            status: DownloadStatus::Failed,
-            progress: 28,
-        },
-        Download {
-            id: "skybox".into(),
-            status: DownloadStatus::Completed,
-            progress: 100,
-        },
-    ]
+    Vec::new()
 }
 
 pub fn apply_action(apps: &mut Vec<StoreApp>, downloads: &mut Vec<Download>, action: &StoreAction) {
@@ -321,14 +406,7 @@ pub fn apply_action(apps: &mut Vec<StoreApp>, downloads: &mut Vec<Download>, act
                 app.installed = Some(app.version.clone());
             }
             downloads.retain(|d| &d.id != id);
-            downloads.insert(
-                0,
-                Download {
-                    id: id.clone(),
-                    status: DownloadStatus::Completed,
-                    progress: 100,
-                },
-            );
+            downloads.insert(0, Download::completed(id.clone()));
         }
         StoreAction::Uninstall(id) => {
             if let Some(app) = apps.iter_mut().find(|a| &a.id == id) {
@@ -373,9 +451,35 @@ pub fn filter_catalog(
     filtered
 }
 
+pub fn app_slug(app: &StoreApp) -> String {
+    app.name.to_lowercase().replace(' ', "-")
+}
+
 pub fn repository(app: &StoreApp) -> String {
-    format!(
-        "https://github.com/Get-XD/{}",
-        app.name.to_lowercase().replace(' ', "-")
-    )
+    format!("https://github.com/Get-XD/{}", app_slug(app))
+}
+
+pub fn asset_name(app: &StoreApp) -> String {
+    if app.asset.is_empty() {
+        format!("{}-{}.zip", app.id, app.version)
+    } else {
+        app.asset.clone()
+    }
+}
+
+pub fn installer_kind(app: &StoreApp) -> InstallerKind {
+    InstallerKind::from_asset(&asset_name(app))
+}
+
+pub fn download_url(app: &StoreApp) -> String {
+    if app.download_url.is_empty() {
+        format!(
+            "https://github.com/Get-XD/{}/releases/download/v{}/{}",
+            app_slug(app),
+            app.version,
+            asset_name(app)
+        )
+    } else {
+        app.download_url.clone()
+    }
 }
