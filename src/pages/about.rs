@@ -94,7 +94,7 @@ pub fn about_page(theme: Theme, store: StoreHandle, _cx: &mut App) -> Div {
                         s_gh.update(cx, |s, _| {
                             s.toast(
                                 "GitHub profile",
-                                Some("https://github.com/pamod-madubashana".into()),
+                                Some("https://github.com/Get-XD".into()),
                                 crate::state::ToastKind::Info,
                             );
                         });
@@ -113,7 +113,7 @@ pub fn about_page(theme: Theme, store: StoreHandle, _cx: &mut App) -> Div {
                             s.toast(
                                 "Source code",
                                 Some(
-                                    "https://github.com/pamod-madubashana/XD".into(),
+                                    "https://github.com/Get-XD/XD".into(),
                                 ),
                                 crate::state::ToastKind::Info,
                             );
