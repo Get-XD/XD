@@ -69,6 +69,7 @@ fn main() {
                 WindowOptions {
                     titlebar: Some(TitlebarOptions {
                         title: Some("XD".into()),
+                        appears_transparent: true,
                         ..Default::default()
                     }),
                     window_bounds: Some(WindowBounds::Windowed(bounds)),

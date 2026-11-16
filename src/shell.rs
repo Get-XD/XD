@@ -5,21 +5,27 @@ use crate::pages::*;
 use crate::state::*;
 use crate::theme::Theme;
 use crate::ui::*;
-use gpui::{App, Context, Div, FontWeight, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Render, SharedString, Stateful, StatefulInteractiveElement, Styled, Window, div, px};
+use gpui::{App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Render, ScrollHandle, SharedString, Stateful, StatefulInteractiveElement, Styled, Window, WindowControlArea, div, px};
 use gpui::prelude::{FluentBuilder};
 
 pub struct StoreShell {
     store: StoreHandle,
+    scroll: ScrollHandle,
+    scroll_route: Route,
 }
 
 impl StoreShell {
     pub fn new(store: StoreHandle) -> Self {
-        Self { store }
+        Self {
+            store,
+            scroll: ScrollHandle::new(),
+            scroll_route: Route::Home,
+        }
     }
 }
 
 impl Render for StoreShell {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let store = self.store.clone();
         let state = store.read(cx);
         let theme = state.theme.clone();
@@ -36,6 +42,11 @@ impl Render for StoreShell {
         let command_query = state.command_query.clone();
         let apps = state.apps.clone();
         let active_input = state.active_input;
+
+        if self.scroll_route != route {
+            self.scroll = ScrollHandle::new();
+            self.scroll_route = route;
+        }
 
         let sidebar_w = if collapsed { 74.0 } else { 230.0 };
         let content_left = sidebar_w;
@@ -97,24 +108,46 @@ impl Render for StoreShell {
             .child(sidebar(theme.clone(), store.clone(), collapsed, route, updates.len(), active, cx))
             .child(
                 div()
+                    .id("main-col")
                     .ml(px(content_left))
-                    .min_h_full()
                     .flex()
                     .flex_col()
-                    .child(header(theme.clone(), store.clone(), page_title, cx))
+                    .h_full()
+                    .child(header(
+                        theme.clone(),
+                        store.clone(),
+                        page_title,
+                        window.is_maximized(),
+                        cx,
+                    ))
                     .child(
                         div()
-                            .id("page-content")
+                            .id("main-scroll")
                             .flex_1()
-                            .px(px(36.0))
-                            .pt(px(theme.content_pad_top()))
-                            .pb(px(32.0))
-                            .max_w(px(1540.0))
-                            .w_full()
+                            .min_h(px(0.0))
                             .overflow_hidden()
-                            .child(page_body(theme.clone(), store.clone(), cx)),
-                    )
-                    .child(footer(theme.clone())),
+                            .overflow_y_scroll()
+                            .track_scroll(&self.scroll)
+                            .child(
+                                div()
+                                    .min_h_full()
+                                    .flex()
+                                    .flex_col()
+                                    .child(
+                                        div()
+                                            .id("page-content")
+                                            .flex_1()
+                                            .px(px(36.0))
+                                            .pt(px(theme.content_pad_top()))
+                                            .pb(px(32.0))
+                                            .max_w(px(1540.0))
+                                            .w_full()
+                                            .overflow_hidden()
+                                            .child(page_body(theme.clone(), store.clone(), cx)),
+                                    )
+                                    .child(footer(theme.clone())),
+                            )
+                    ),
             )
             .when(dialog == DialogKind::CommandPalette, |d| {
                 d.child(command_palette(
@@ -145,6 +178,81 @@ impl Render for StoreShell {
         let _ = active_input;
         root
     }
+}
+
+fn caption_buttons(theme: Theme, maximized: bool) -> Stateful<Div> {
+    let mut hover_bg = theme.muted_fg;
+    hover_bg.a = 0.12;
+    let close_red = Hsla {
+        h: 0.986,
+        s: 0.864,
+        l: 0.488,
+        a: 1.0,
+    };
+    let white = Hsla {
+        h: 0.0,
+        s: 0.0,
+        l: 1.0,
+        a: 1.0,
+    };
+
+    let mut glyph = icon("square").size(px(14.0)).text_color(theme.muted_fg);
+    if maximized {
+        glyph = icon("copy").size(px(14.0)).text_color(theme.muted_fg);
+    }
+
+    div()
+        .id("caption-buttons")
+        .flex()
+        .flex_shrink_0()
+        .items_center()
+        .h_full()
+        .mr(px(-36.0))
+        .child(
+            div()
+                .id("tb-min")
+                .w(px(46.0))
+                .h(px(46.0))
+                .flex_shrink_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .hover(|s| s.bg(hover_bg))
+                .window_control_area(WindowControlArea::Min)
+                .child(icon("minus").size(px(14.0)).text_color(theme.muted_fg)),
+        )
+        .child(
+            div()
+                .id("tb-max")
+                .w(px(46.0))
+                .h(px(46.0))
+                .flex_shrink_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .hover(|s| s.bg(hover_bg))
+                .window_control_area(WindowControlArea::Max)
+                .child(glyph),
+        )
+        .child(
+            div()
+                .id("tb-close")
+                .w(px(46.0))
+                .h(px(46.0))
+                .flex_shrink_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .hover(|s| s.bg(close_red))
+                .window_control_area(WindowControlArea::Close)
+                .child(
+                    icon("x")
+                        .id("tb-close-ico")
+                        .size(px(14.0))
+                        .text_color(theme.muted_fg)
+                        .hover(|s| s.text_color(white)),
+                ),
+        )
 }
 
 fn page_body(theme: Theme, store: StoreHandle, cx: &mut App) -> Div {
@@ -499,7 +607,13 @@ fn brand(theme: Theme, collapsed: bool, store: StoreHandle, _cx: &mut App) -> St
         })
 }
 
-fn header(theme: Theme, store: StoreHandle, title: String, cx: &mut App) -> Stateful<Div> {
+fn header(
+    theme: Theme,
+    store: StoreHandle,
+    title: String,
+    maximized: bool,
+    cx: &mut App,
+) -> Stateful<Div> {
     let store_search = store.clone();
     let store_notif = store.clone();
     let store_settings = store.clone();
@@ -513,7 +627,7 @@ fn header(theme: Theme, store: StoreHandle, title: String, cx: &mut App) -> Stat
         .id("header")
         .flex()
         .items_center()
-        .justify_between()
+        .gap(px(14.0))
         .h(px(73.0))
         .px(px(36.0))
         .border_b(px(1.0))
@@ -521,10 +635,20 @@ fn header(theme: Theme, store: StoreHandle, title: String, cx: &mut App) -> Stat
         .flex_shrink_0()
         .child(
             div()
-                .text_size(px(13.0))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(theme.foreground)
-                .child(title),
+                .id("header-drag")
+                .flex()
+                .items_center()
+                .flex_1()
+                .min_w(px(0.0))
+                .h_full()
+                .window_control_area(WindowControlArea::Drag)
+                .child(
+                    div()
+                        .text_size(px(13.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(theme.foreground)
+                        .child(title),
+                ),
         )
         .child(
             div()
@@ -636,6 +760,7 @@ fn header(theme: Theme, store: StoreHandle, title: String, cx: &mut App) -> Stat
                         }),
                 ),
         )
+        .child(caption_buttons(theme.clone(), maximized))
 }
 
 fn footer(theme: Theme) -> Div {
