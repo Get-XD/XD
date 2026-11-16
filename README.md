@@ -14,6 +14,7 @@ A personal app-store desktop client for Windows, built with **Rust** and **[GPUI
 - **Settings** — appearance (theme/density), download directory, concurrent downloads, behavior toggles
 - **Command palette** — `Ctrl/Cmd+K` to search apps or jump to a page
 - **Toasts & confirmations** for install/update/uninstall flows
+- **Frameless window** — custom top bar: drag to move, double-click to maximize, min/max/close caption buttons (white close icon on hover)
 
 ## Tech stack
 
@@ -46,7 +47,7 @@ cargo build
 assets/            fonts, icons, hero artwork
 src/
   main.rs          entry point, window, fonts, asset source
-  shell.rs         window chrome: titlebar, sidebar, header, routing, dialogs
+  shell.rs         shell: frameless top bar (drag + caption buttons), sidebar, header, routing, dialogs
   ui.rs            primitives: buttons, inputs, selects, section headings
   components.rs    app cards, badges, icon tiles
   pages/           home, explore (+installed), details, updates, downloads, settings, about
