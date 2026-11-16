@@ -243,6 +243,7 @@ fn caption_buttons(theme: Theme, maximized: bool) -> Stateful<Div> {
                 .flex()
                 .items_center()
                 .justify_center()
+                .group("caption-close")
                 .hover(|s| s.bg(close_red))
                 .window_control_area(WindowControlArea::Close)
                 .child(
@@ -250,7 +251,7 @@ fn caption_buttons(theme: Theme, maximized: bool) -> Stateful<Div> {
                         .id("tb-close-ico")
                         .size(px(14.0))
                         .text_color(theme.muted_fg)
-                        .hover(|s| s.text_color(white)),
+                        .group_hover("caption-close", |s| s.text_color(white)),
                 ),
         )
 }
